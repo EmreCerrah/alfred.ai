@@ -9,7 +9,7 @@ implementation_artifacts: "{project-root}/_bmad-output/implementation-artifacts"
 project_knowledge: "{project-root}/docs"
 
 # Core Configuration Values
-user_name: Kuasar
+user_name: Emre
 project_name: Alfred.ai
 communication_language: Turkish
 document_output_language: Turkish
