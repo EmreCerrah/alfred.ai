@@ -47,3 +47,18 @@ alfred:
     max-retries: 2
     timeout: 60s
     max-tool-result-chars: 20000
+    # Budget and Turn limit, checked before every call (AD-12, FR-18).
+    monthly-budget-usd: 5
+    max-turns-per-task: 15
+    budget-warning-ratio: 0.8
+    # The budget month follows this calendar.
+    budget-zone: Europe/Istanbul
+    # claude-haiku-5-5, USD per million tokens; prompts over the threshold use the long rates.
+    pricing:
+      input-per-mtok: 0.10
+      output-per-mtok: 0.50
+      long-input-per-mtok: 0.50
+      long-output-per-mtok: 2.50
+      long-context-threshold: 100000
+      cache-read-multiplier: 0.1
+      cache-write-multiplier: 1.25

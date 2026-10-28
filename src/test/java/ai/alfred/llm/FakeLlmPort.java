@@ -11,22 +11,28 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class FakeLlmPort implements LlmPort {
 
-	private final AtomicReference<Behavior> behavior = new AtomicReference<>(new Behavior("Buyurun, efendim.", null));
+	private final AtomicReference<Behavior> behavior = new AtomicReference<>(new Behavior("Buyurun, efendim.", null, false));
 
 	private volatile CountDownLatch gate = new CountDownLatch(0);
 
 	private volatile LlmRequest lastRequest;
 
-	private record Behavior(String reply, RuntimeException failure) {
+	private record Behavior(String reply, RuntimeException failure, boolean budgetWarning) {
 	}
 
 	public FakeLlmPort replyWith(String text) {
-		behavior.set(new Behavior(text, null));
+		behavior.set(new Behavior(text, null, false));
+		return this;
+	}
+
+	/** Replies like the call that pushed the month past the warning ratio. */
+	public FakeLlmPort replyWithBudgetWarning(String text) {
+		behavior.set(new Behavior(text, null, true));
 		return this;
 	}
 
 	public FakeLlmPort failWith(RuntimeException failure) {
-		behavior.set(new Behavior(null, failure));
+		behavior.set(new Behavior(null, failure, false));
 		return this;
 	}
 
@@ -72,7 +78,7 @@ public class FakeLlmPort implements LlmPort {
 			throw current.failure();
 		}
 		return new LlmResponse(new LlmMessage.Assistant(current.reply(), List.of(), new ProviderContent(List.of())),
-				StopReason.END_TURN, new Usage(1, 1, 0, 0));
+				StopReason.END_TURN, new Usage(1, 1, 0, 0), current.budgetWarning());
 	}
 
 }
