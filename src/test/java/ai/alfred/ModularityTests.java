@@ -2,11 +2,13 @@ package ai.alfred;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import fixture.violation.FixtureApplication;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,18 @@ class ModularityTests {
 		MODULES.forEach(module -> assertThat(dependencies(module))
 				.as("dependencies of module '%s'", name(module))
 				.isSubsetOf(ALLOWED.get(name(module))));
+	}
+
+	@Test
+	void keepsModelProviderTypesInsideTheLlmModule() {
+		noClasses().that()
+			.resideOutsideOfPackage("ai.alfred.llm..")
+			.should()
+			.dependOnClassesThat()
+			.resideInAnyPackage("com.anthropic..", "org.springframework.ai..")
+			.because("Anthropic and Spring AI types must not leak past LlmPort (AD-2, AD-11)")
+			.check(new ClassFileImporter().withImportOption(new ImportOption.DoNotIncludeTests())
+				.importPackages("ai.alfred"));
 	}
 
 	@Test
