@@ -18,7 +18,6 @@ repositories {
 	mavenCentral()
 }
 
-extra["springAiVersion"] = "2.0.1"
 extra["springModulithVersion"] = "2.1.1"
 
 dependencies {
@@ -26,7 +25,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-jdbc")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.flywaydb:flyway-database-postgresql")
-	implementation("org.springframework.ai:spring-ai-starter-model-anthropic")
+	// Direct SDK, not Spring AI: Spring AI 2.0.1 reorders replayed thinking blocks (see llm/README.md).
+	implementation("com.anthropic:anthropic-java:2.75.0")
 	implementation("org.springframework.modulith:spring-modulith-starter-core")
 	implementation("org.springframework.modulith:spring-modulith-starter-jdbc")
 	runtimeOnly("org.postgresql:postgresql")
@@ -44,10 +44,22 @@ dependencies {
 dependencyManagement {
 	imports {
 		mavenBom("org.springframework.modulith:spring-modulith-bom:${property("springModulithVersion")}")
-		mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
 	}
 }
 
-tasks.withType<Test> {
-	useJUnitPlatform()
+tasks.test {
+	useJUnitPlatform {
+		excludeTags("live")
+	}
+}
+
+// Calls the real Claude API (needs ANTHROPIC_API_KEY); never part of the default build.
+tasks.register<Test>("liveTest") {
+	description = "Runs @Tag(\"live\") tests against the real Claude API."
+	group = "verification"
+	testClassesDirs = sourceSets.test.get().output.classesDirs
+	classpath = sourceSets.test.get().runtimeClasspath
+	useJUnitPlatform {
+		includeTags("live")
+	}
 }

@@ -9,10 +9,6 @@ spring:
     url: ${ALFRED_DB_URL:jdbc:postgresql://127.0.0.1:5432/${ALFRED_DB_NAME:alfred}}
     username: ${ALFRED_DB_USER:alfred}
     password: ${ALFRED_DB_PASSWORD}
-  ai:
-    model:
-      # Story 1.2 enables the Anthropic chat model behind LlmPort.
-      chat: none
   modulith:
     runtime:
       # Flyway per application module: db/migration/__root, then db/migration/<module>.
@@ -23,3 +19,15 @@ spring:
         schema: modulith
         schema-initialization:
           enabled: false
+
+alfred:
+  llm:
+    model: claude-haiku-5-5
+    effort: medium
+    max-tokens: 16000
+    # From the environment only (AD-15); empty means every call fails with LlmUnavailable.
+    api-key: ${ANTHROPIC_API_KEY:}
+    base-url:
+    max-retries: 2
+    timeout: 60s
+    max-tool-result-chars: 20000
