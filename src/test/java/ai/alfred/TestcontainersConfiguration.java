@@ -7,10 +7,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
+public class TestcontainersConfiguration {
 
 	/** Must match the image pinned in compose.yaml; StartupTests checks this. */
-	static final String POSTGRES_IMAGE = "postgres:18.6";
+	public static final String POSTGRES_IMAGE = "postgres:18.6";
 
 	@Bean
 	@ServiceConnection

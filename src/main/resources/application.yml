@@ -1,10 +1,16 @@
 server:
-  # Never reachable from the network (AD-10); Story 1.3 adds token and Origin/Host checks.
+  # Never reachable from the network (AD-10); every /api request also needs the daemon token.
   address: 127.0.0.1
+  # 0 = a free port per start; the thin client finds it in the runtime file.
+  port: ${alfred.cli.port}
 
 spring:
   application:
     name: alfred
+  mvc:
+    # Malformed requests (bad JSON, wrong content type) also answer with RFC 9457 ProblemDetail.
+    problemdetails:
+      enabled: true
   datasource:
     url: ${ALFRED_DB_URL:jdbc:postgresql://127.0.0.1:5432/${ALFRED_DB_NAME:alfred}}
     username: ${ALFRED_DB_USER:alfred}
@@ -21,6 +27,16 @@ spring:
           enabled: false
 
 alfred:
+  cli:
+    port: 0
+    # Empty: ALFRED_RUNTIME_DIR, else $XDG_RUNTIME_DIR/alfred, else %LOCALAPPDATA%/alfred, else ~/.local/state/alfred.
+    runtime-dir:
+  agent:
+    max-active-tasks: 1
+    # Longer messages are refused before any Claude call (cost guard until the budget of Story 1.5).
+    max-message-chars: 20000
+  persona:
+    language: tr
   llm:
     model: claude-haiku-5-5
     effort: medium
