@@ -9,8 +9,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import ai.alfred.llm.FakeLlmPort;
+import ai.alfred.llm.LlmBudgetExhausted;
 import ai.alfred.llm.LlmMessage;
 import ai.alfred.llm.LlmRequestRejected;
+import ai.alfred.llm.LlmTurnLimitReached;
 import ai.alfred.persona.Persona;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -80,6 +82,37 @@ class AgentTests {
 		awaitNoActiveTasks();
 		assertThat(agent.submit("Uc")).isNotEqualTo(first);
 		next();
+	}
+
+	@Test
+	void explainsAnExhaustedBudgetAsNoNewTaskOrAsAStoppedTask() throws Exception {
+		llm.failWith(new LlmBudgetExhausted("full", 0));
+		UUID refused = agent.submit("Merhaba");
+		assertThat(next()).isEqualTo(new AgentOutput.Failure(refused, persona.text("llm.budget-exhausted")));
+
+		llm.failWith(new LlmBudgetExhausted("full", 3));
+		UUID stopped = agent.submit("Merhaba");
+		assertThat(next()).isEqualTo(new AgentOutput.Failure(stopped, persona.text("llm.budget-exhausted-mid-task")));
+	}
+
+	@Test
+	void reportsTheTurnLimitWithTheLimit() throws Exception {
+		llm.failWith(new LlmTurnLimitReached("limit", 15));
+		UUID taskId = agent.submit("Merhaba");
+
+		AgentOutput output = next();
+		assertThat(output).isEqualTo(new AgentOutput.Failure(taskId, persona.text("llm.turn-limit", 15)));
+		assertThat(output.text()).contains("15");
+	}
+
+	@Test
+	void appendsTheBudgetWarningToTheReplyOnce() throws Exception {
+		llm.replyWithBudgetWarning("Buyurun, efendim.");
+
+		UUID taskId = agent.submit("Merhaba");
+
+		assertThat(next()).isEqualTo(new AgentOutput.Reply(taskId,
+				"Buyurun, efendim.\n\n" + persona.text("llm.budget-warning")));
 	}
 
 	@Test

@@ -6,11 +6,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
+import ai.alfred.llm.LlmBudgetExhausted;
 import ai.alfred.llm.LlmMessage;
 import ai.alfred.llm.LlmPort;
 import ai.alfred.llm.LlmRequest;
 import ai.alfred.llm.LlmRequestRejected;
 import ai.alfred.llm.LlmResponse;
+import ai.alfred.llm.LlmTurnLimitReached;
 import ai.alfred.llm.LlmUnavailable;
 import ai.alfred.persona.Persona;
 import org.slf4j.Logger;
@@ -83,7 +85,19 @@ public class Agent implements DisposableBean {
 		try {
 			LlmResponse response = llm.complete(
 					new LlmRequest(taskId, persona.systemPrompt(), List.of(), List.of(new LlmMessage.User(text))));
-			output = new AgentOutput.Reply(taskId, response.message().text());
+			String answer = response.message().text();
+			output = new AgentOutput.Reply(taskId,
+					response.budgetWarning() ? answer + "\n\n" + persona.text("llm.budget-warning") : answer);
+		}
+		catch (LlmBudgetExhausted ex) {
+			log.warn("taskId={} budget exhausted: {}", taskId, ex.getMessage());
+			// No Turn yet means the Task never started; otherwise it stopped halfway (FR-9).
+			output = new AgentOutput.Failure(taskId, persona.text(ex.turnsUsed() == 0 ? "llm.budget-exhausted"
+					: "llm.budget-exhausted-mid-task"));
+		}
+		catch (LlmTurnLimitReached ex) {
+			log.warn("taskId={} {}", taskId, ex.getMessage());
+			output = new AgentOutput.Failure(taskId, persona.text("llm.turn-limit", ex.limit()));
 		}
 		catch (LlmUnavailable ex) {
 			log.warn("taskId={} Claude unavailable: {}", taskId, ex.getMessage());

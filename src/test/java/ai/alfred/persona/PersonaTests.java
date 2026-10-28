@@ -17,7 +17,8 @@ class PersonaTests {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = { "llm.unavailable", "llm.rejected", "agent.failed", "agent.busy", "agent.message-blank" })
+	@ValueSource(strings = { "llm.unavailable", "llm.rejected", "agent.failed", "agent.busy", "agent.message-blank",
+			"llm.budget-exhausted", "llm.budget-exhausted-mid-task", "llm.budget-warning" })
 	void hasEveryTextTheAgentAsksFor(String key) {
 		assertThat(persona.text(key)).containsIgnoringCase("efendim").doesNotContain("Sayın");
 	}
@@ -25,6 +26,7 @@ class PersonaTests {
 	@Test
 	void formatsArgumentsWithoutLosingApostrophesOrGroupingDigits() {
 		assertThat(persona.text("agent.message-too-long", 20000)).contains("20000").startsWith("Efendim");
+		assertThat(persona.text("llm.turn-limit", 15)).contains("15 adım").startsWith("Efendim");
 	}
 
 	@Test
