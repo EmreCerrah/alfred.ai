@@ -1,0 +1,73 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 10-28-2026 12:00
+last_updated: 10-28-2026 12:00
+project: Alfred.ai
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: backlog
+  1-1-proje-iskeleti-ve-modül-sınırları: backlog
+  1-2-claude-bağlantısı-llmport-ve-haiku-5-5-smoke-test-i: backlog
+  1-3-güvenli-cli-kanalı-ve-alfred-le-ilk-sohbet: backlog
+  1-4-konuşma-hafızası: backlog
+  1-5-maliyet-bütçe-ve-tur-sınırı: backlog
+  1-6-write-ahead-işlem-kaydı: backlog
+  1-7-komut-ayrıştırma-ve-kademe-sınıflandırması: backlog
+  1-8-okuma-tool-larını-onaylı-yürütme: backlog
+  1-9-çok-adımlı-teşhis: backlog
+  1-10-bugün-ne-yaptın: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-gerçek-sistem-bilgisi-ve-korunan-kaynaklar: backlog
+  2-2-kademe-1-yap-raporla-gerekirse-bir-kez-uyar: backlog
+  2-3-önce-geri-alınabilir-yap: backlog
+  2-4-güvenlik-kelimesi-cli-ve-kademe-2: backlog
+  2-5-acil-durdurma: backlog
+  2-6-uj-1-provası-cli: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-ses-motoru-benchmark-ı: backlog
+  3-2-konuşmayı-anlamak-stt-servisi: backlog
+  3-3-konuşmak-tts-servisi: backlog
+  3-4-bas-konuş: backlog
+  3-5-sesli-güvenlik-kelimesi-ve-yankı-reddi: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-bana-ac-dc-den-bir-şarkı-aç: backlog
+  4-2-her-zaman-orada-systemd-servisi: backlog
+  4-3-60-saniyelik-demo: backlog
+  4-4-portfolyo-vitrini-readme: backlog
+  epic-4-retrospective: optional
