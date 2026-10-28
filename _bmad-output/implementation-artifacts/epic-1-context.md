@@ -37,7 +37,8 @@ Emre terminalden bir soru sorar ("Redis neden durdu?"); alfred yalnızca okuma (
 - **İzinli bağımlılık kenarları (başkası yasak):** cli→agent, cli→voice, voice→agent, voice→persona, agent→trust, agent→persona, agent→memory, agent→llm (`LlmPort`), agent→capability (yalnızca `ApprovedAction` alan port), trust→persona, capability→trust, audit→capability (Tool SPI). `audit` diğerlerini yalnızca olayla dinler; hiçbir modül `audit`'e derleme bağımlılığı kurmaz. Döngü yasak.
 - **Doğrulama:** `ApplicationModules.of(AlfredApplication.class).verify()` her build'de koşan test; Postgres testleri Testcontainers ile gerçek Postgres'e karşı (mock DB yok).
 - **Core saflığı:** `agent`, `trust`, `persona` Spring AI, Anthropic SDK, HTTP istemcisi ya da ses motoru tipi import etmez; Spring AI/Anthropic tipleri `llm` dışına çıkmaz.
-- **Stack:** Java 25, Spring Boot 4.1.1, Spring Modulith 2.1.1, Spring AI 2.0.1 (`spring-ai-starter-model-anthropic`), Gradle Kotlin DSL, Flyway + Testcontainers (Boot BOM), PostgreSQL (Compose, sürüm pinli). Model `claude-haiku-5-5`, yalnızca config'te.
+- **Stack:** Java 25, Spring Boot 4.1.1, Spring Modulith 2.1.1, Gradle Kotlin DSL, Flyway + Testcontainers (Boot BOM), PostgreSQL 18.6 (Compose). LLM: doğrudan `anthropic-java` 2.75.0; Spring AI yok. Sebep: Spring AI, Haiku 5.5'in preserved thinking kuralına uymuyor, çünkü thinking bloklarını yeniden sıralıyor (`llm/README.md`). Model `claude-haiku-5-5`, yalnızca config'te.
+- **LlmPort (1.2'de hazır):** `complete(LlmRequest)` → `LlmResponse`. Assistant turu (`ProviderContent` dahil) geçmişe olduğu gibi eklenir. Hatalar `LlmUnavailable` / `LlmRequestRejected` olarak döner. `alfred.llm.*` config'i başlangıçta doğrulanır.
 - **Veri:** Modül başına Postgres şeması (şema adı = modül adı) ve Flyway migration konumu (`db/migration/<module>/`); `spring.modulith.runtime.flyway-enabled=true`; şemalar migration'da oluşturulur. `event_publication` paylaşılan `modulith` şemasında. Modüller arası JOIN/yazma yok.
 - **Başlangıç:** Daemon Postgres ve Flyway'i zorunlu tutar; Postgres yoksa başlamaz.
 - **Kontrol yolu senkron, audit olay tabanlı:** olaylar transaction içinde yayımlanır, event publication registry (JDBC) kalıcılaştırır; `ActionStarted` süreç başlamadan commit edilir.
@@ -48,7 +49,7 @@ Emre terminalden bir soru sorar ("Redis neden durdu?"); alfred yalnızca okuma (
 ## Cross-Story Dependencies
 
 - 1.1 tüm story'lerin zeminidir (modüller, `verify()`, Compose Postgres, modül başına Flyway).
-- 1.2 (`LlmPort`) → 1.3, 1.4, 1.5, 1.9. 1.2 smoke test'i başarısız olursa `llm` adapter'ı doğrudan Anthropic SDK'ya geçer; `LlmPort` imzası değişmez.
+- 1.2 (`LlmPort`, tamamlandı) → 1.3, 1.4, 1.5, 1.9.
 - 1.6 (audit) → 1.8 (write-ahead yürütme), 1.10 (gün özeti).
 - 1.7 (sınıflandırıcı) → 1.8 → 1.9.
 - Kapsam daraltma sırası: zorunlu yol 1.1 → 1.2 → 1.3 → 1.6 → 1.7 → 1.8 → 1.9, artı 1.5'in bütçe/Tur sınırları; ertelenebilir: önce 1.10, sonra 1.4, sonra 1.5'teki aylık harcama sorgusu.

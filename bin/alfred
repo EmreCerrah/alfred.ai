@@ -1,0 +1,6 @@
+#!/bin/sh
+# Thin client for the alfred daemon. Build the jar once with: ./gradlew :client:jar
+here=$(dirname "$(readlink -f "$0")")
+java_cmd=java
+[ -n "$JAVA_HOME" ] && java_cmd="$JAVA_HOME/bin/java"
+exec "$java_cmd" -jar "$here/../client/build/libs/alfred-client.jar" "$@"
