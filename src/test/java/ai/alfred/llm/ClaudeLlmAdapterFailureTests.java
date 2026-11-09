@@ -31,33 +31,33 @@ class ClaudeLlmAdapterFailureTests {
 
 	@Test
 	void failsWithLlmUnavailableWithoutAnApiKey() {
-		LlmPort port = new ClaudeLlmAdapter(properties("", null));
+		ClaudeLlmAdapter port = new ClaudeLlmAdapter(properties("", null));
 
-		assertThatExceptionOfType(LlmUnavailable.class).isThrownBy(() -> port.complete(request))
+		assertThatExceptionOfType(LlmUnavailable.class).isThrownBy(() -> port.call(request))
 			.withMessageContaining("ANTHROPIC_API_KEY");
 	}
 
 	@Test
 	void failsWithLlmUnavailableWhenClaudeIsUnreachable() {
-		LlmPort port = new ClaudeLlmAdapter(properties("test-key", "http://127.0.0.1:1"));
+		ClaudeLlmAdapter port = new ClaudeLlmAdapter(properties("test-key", "http://127.0.0.1:1"));
 
-		assertThatExceptionOfType(LlmUnavailable.class).isThrownBy(() -> port.complete(request));
+		assertThatExceptionOfType(LlmUnavailable.class).isThrownBy(() -> port.call(request));
 	}
 
 	@ParameterizedTest
 	@ValueSource(ints = { 400, 404, 413, 422 })
 	void reportsAProviderRejectionAsLlmRequestRejected(int status) throws IOException {
-		LlmPort port = new ClaudeLlmAdapter(properties("test-key", respondingWith(status)));
+		ClaudeLlmAdapter port = new ClaudeLlmAdapter(properties("test-key", respondingWith(status)));
 
-		assertThatExceptionOfType(LlmRequestRejected.class).isThrownBy(() -> port.complete(request));
+		assertThatExceptionOfType(LlmRequestRejected.class).isThrownBy(() -> port.call(request));
 	}
 
 	@ParameterizedTest
 	@ValueSource(ints = { 401, 403, 429, 500, 529 })
 	void reportsCredentialsRateLimitsAndOutagesAsLlmUnavailable(int status) throws IOException {
-		LlmPort port = new ClaudeLlmAdapter(properties("test-key", respondingWith(status)));
+		ClaudeLlmAdapter port = new ClaudeLlmAdapter(properties("test-key", respondingWith(status)));
 
-		assertThatExceptionOfType(LlmUnavailable.class).isThrownBy(() -> port.complete(request));
+		assertThatExceptionOfType(LlmUnavailable.class).isThrownBy(() -> port.call(request));
 	}
 
 	/** A local stand-in for the API that answers every request with {@code status} and an Anthropic error body. */

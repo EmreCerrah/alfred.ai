@@ -14,21 +14,28 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
 /**
- * {@link LlmPort} on the Anthropic Java SDK (beta Messages API). The client is created only when an API key is
- * configured, so the daemon starts without one and each call fails with {@link LlmUnavailable} instead.
+ * The raw model call on the Anthropic Java SDK (beta Messages API); reached only through {@link MeteredLlmPort}. The
+ * client is created only when an API key is configured, so the daemon starts without one and each call fails with
+ * {@link LlmUnavailable} instead.
  */
 @Component
-class ClaudeLlmAdapter implements LlmPort, DisposableBean {
+class ClaudeLlmAdapter implements ModelCall, DisposableBean {
 
 	private static final Logger log = LoggerFactory.getLogger(ClaudeLlmAdapter.class);
 
 	private static final int REQUEST_TOO_LARGE = 413;
+
+	/** Request JSON is mostly ASCII-ish text; two characters per token is a generous upper estimate. */
+	private static final int CHARS_PER_TOKEN_LOWER_BOUND = 2;
+
+	private final LlmProperties properties;
 
 	private final ClaudeRequestMapper mapper;
 
 	private final AnthropicClient client;
 
 	ClaudeLlmAdapter(LlmProperties properties) {
+		this.properties = properties;
 		this.mapper = new ClaudeRequestMapper(properties);
 		this.client = properties.hasApiKey() ? createClient(properties) : null;
 		if (client == null) {
@@ -37,7 +44,22 @@ class ClaudeLlmAdapter implements LlmPort, DisposableBean {
 	}
 
 	@Override
-	public LlmResponse complete(LlmRequest request) {
+	public String model() {
+		return properties.model();
+	}
+
+	@Override
+	public long maxTokens() {
+		return properties.maxTokens();
+	}
+
+	@Override
+	public long estimatePromptTokens(LlmRequest request) {
+		return mapper.bodyLength(request) / CHARS_PER_TOKEN_LOWER_BOUND + 1;
+	}
+
+	@Override
+	public LlmResponse call(LlmRequest request) {
 		if (client == null) {
 			throw new LlmUnavailable("No Anthropic API key configured: set ANTHROPIC_API_KEY");
 		}

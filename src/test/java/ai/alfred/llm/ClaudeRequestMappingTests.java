@@ -149,6 +149,20 @@ class ClaudeRequestMappingTests {
 	}
 
 	@Test
+	void estimatesAtLeastHalfABodyCharacterPerPromptTokenAndGrowsWithTheHistory() {
+		ClaudeLlmAdapter adapter = new ClaudeLlmAdapter(PROPERTIES);
+		LlmRequest short_ = request(List.of(new LlmMessage.User("Redis neden durdu?")));
+		LlmRequest withToolRound = request(List.of(new LlmMessage.User("Redis neden durdu?"),
+				mapper.toResponse(message(TOOL_USE_RESPONSE)).message(),
+				new LlmMessage.ToolResults(List.of(new ToolResult("toolu_1", "exited (137)", false)))));
+
+		assertThat(adapter.estimatePromptTokens(short_)).isGreaterThanOrEqualTo(mapper.bodyLength(short_) / 2)
+			.isPositive();
+		assertThat(adapter.estimatePromptTokens(withToolRound)).isGreaterThan(adapter.estimatePromptTokens(short_));
+		adapter.destroy();
+	}
+
+	@Test
 	void refusesToolResultsWithoutContent() {
 		assertThatNullPointerException().isThrownBy(() -> new ToolResult("toolu_1", null, false));
 	}

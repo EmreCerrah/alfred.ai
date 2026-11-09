@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.ZoneId;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -35,6 +37,47 @@ class LlmPropertiesTests {
 		assertThat(properties.maxToolResultChars()).isEqualTo(20000);
 		assertThat(properties.hasApiKey()).isEqualTo(System.getenv("ANTHROPIC_API_KEY") != null
 				&& !System.getenv("ANTHROPIC_API_KEY").isBlank());
+	}
+
+	@Test
+	void bindsTheShippedBudgetAndPricesFromApplicationYml() throws IOException {
+		StandardEnvironment environment = new StandardEnvironment();
+		new YamlPropertySourceLoader().load("application", new ClassPathResource("application.yml"))
+			.forEach(environment.getPropertySources()::addLast);
+
+		MeteringProperties metering = new Binder(ConfigurationPropertySources.get(environment),
+				new PropertySourcesPlaceholdersResolver(environment))
+			.bind("alfred.llm", MeteringProperties.class)
+			.get();
+
+		assertThat(metering.monthlyBudgetUsd()).isEqualByComparingTo("5");
+		assertThat(metering.maxTurnsPerTask()).isEqualTo(15);
+		assertThat(metering.budgetWarningRatio()).isEqualByComparingTo("0.8");
+		assertThat(metering.budgetZone()).isEqualTo(ZoneId.of("Europe/Istanbul"));
+		assertThat(metering.pricing()).usingRecursiveComparison()
+			.withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+			.isEqualTo(PricingTests.HAIKU_5_5);
+	}
+
+	@Test
+	void rejectsABudgetOrTurnLimitThatCannotWork() {
+		assertThatIllegalArgumentException().isThrownBy(() -> new MeteringProperties(BigDecimal.ZERO, 15,
+				new BigDecimal("0.8"), ZoneId.of("UTC"), PricingTests.HAIKU_5_5));
+		assertThatIllegalArgumentException().isThrownBy(() -> new MeteringProperties(BigDecimal.ONE, 0,
+				new BigDecimal("0.8"), ZoneId.of("UTC"), PricingTests.HAIKU_5_5));
+		assertThatIllegalArgumentException().isThrownBy(() -> new MeteringProperties(BigDecimal.ONE, 15,
+				new BigDecimal("1.5"), ZoneId.of("UTC"), PricingTests.HAIKU_5_5));
+	}
+
+	@Test
+	void rejectsNegativeOrMissingPricesAndAZeroThreshold() {
+		BigDecimal one = BigDecimal.ONE;
+		assertThatIllegalArgumentException().isThrownBy(
+				() -> new MeteringProperties.Prices(new BigDecimal("-0.1"), one, one, one, 100_000, one, one));
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> new MeteringProperties.Prices(null, one, one, one, 100_000, one, one));
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> new MeteringProperties.Prices(one, one, one, one, 0, one, one));
 	}
 
 	@Test

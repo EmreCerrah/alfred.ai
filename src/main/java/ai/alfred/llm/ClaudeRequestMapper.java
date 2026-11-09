@@ -64,6 +64,16 @@ class ClaudeRequestMapper {
 		return builder.build();
 	}
 
+	/** Length of the request body as JSON, for the token estimate behind the budget reservation. */
+	long bodyLength(LlmRequest request) {
+		try {
+			return ObjectMappers.jsonMapper().writeValueAsString(toParams(request)._body()).length();
+		}
+		catch (JsonProcessingException ex) {
+			throw new IllegalStateException("request body is not serializable", ex);
+		}
+	}
+
 	LlmResponse toResponse(BetaMessage message) {
 		List<BetaContentBlockParam> blocks = message.content().stream().map(BetaContentBlock::toParam).toList();
 		String text = message.content()

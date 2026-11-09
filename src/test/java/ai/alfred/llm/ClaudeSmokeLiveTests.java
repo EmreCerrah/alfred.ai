@@ -14,7 +14,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Smoke test against the real API with {@code claude-haiku-5-5}: run with {@code ./gradlew liveTest} and
- * {@code ANTHROPIC_API_KEY} set. Costs well under one cent per run.
+ * {@code ANTHROPIC_API_KEY} set. Costs well under one cent per run. Calls the adapter directly, so the run is not
+ * written to the cost ledger.
  */
 @Tag("live")
 class ClaudeSmokeLiveTests {
@@ -27,7 +28,7 @@ class ClaudeSmokeLiveTests {
 					 "required": ["name"]}
 					""");
 
-	static LlmPort port;
+	static ClaudeLlmAdapter port;
 
 	@BeforeAll
 	static void requireApiKey() {
@@ -43,7 +44,7 @@ class ClaudeSmokeLiveTests {
 		List<LlmMessage> history = new ArrayList<>(
 				List.of(new LlmMessage.User("Redis container'inin durumu ne? Araci kullanarak kontrol et.")));
 
-		LlmResponse first = port.complete(new LlmRequest(taskId, SYSTEM, List.of(CONTAINER_STATUS), history));
+		LlmResponse first = port.call(new LlmRequest(taskId, SYSTEM, List.of(CONTAINER_STATUS), history));
 
 		assertThat(first.stopReason()).isEqualTo(StopReason.TOOL_USE);
 		ToolCall call = first.message().toolCalls().getFirst();
@@ -56,7 +57,7 @@ class ClaudeSmokeLiveTests {
 		history.add(new LlmMessage.ToolResults(List.of(new ToolResult(call.id(), "redis: exited (137) 12 minutes ago",
 				false))));
 		// The second round replays the first turn's thinking blocks; block_binding=error turns any edit into a 400.
-		LlmResponse second = port.complete(new LlmRequest(taskId, SYSTEM, List.of(CONTAINER_STATUS), history));
+		LlmResponse second = port.call(new LlmRequest(taskId, SYSTEM, List.of(CONTAINER_STATUS), history));
 
 		assertThat(second.stopReason()).isEqualTo(StopReason.END_TURN);
 		assertThat(second.message().text()).isNotBlank();
