@@ -37,6 +37,10 @@ alfred:
     max-message-chars: 20000
   persona:
     language: tr
+  memory:
+    # Prompt size (input + cache read + cache write) above which Alfred suggests "yeni konuşma" once per
+    # Conversation; below the 100K long-context price threshold.
+    suggest-reset-tokens: 80000
   llm:
     model: claude-haiku-5-5
     effort: medium

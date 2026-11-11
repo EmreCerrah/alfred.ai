@@ -1,5 +1,6 @@
 package ai.alfred.agent;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -14,6 +15,8 @@ import ai.alfred.llm.LlmRequestRejected;
 import ai.alfred.llm.LlmResponse;
 import ai.alfred.llm.LlmTurnLimitReached;
 import ai.alfred.llm.LlmUnavailable;
+import ai.alfred.llm.StopReason;
+import ai.alfred.memory.Conversation;
 import ai.alfred.persona.Persona;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,8 +25,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Service;
 
 /**
- * The decision loop's entry point. For now each request is a single LLM turn without memory or Tools; Conversation
- * (1.4), budget (1.5) and Tools (1.8) build on this.
+ * The decision loop's entry point. Each request is one LLM turn on top of the shared Conversation (FR-5), without
+ * Tools yet (1.8). Only a completed exchange (the user's message and a keepable answer) is appended, so a failed
+ * request leaves no trace and retyping it does not duplicate a turn. The "new conversation" command is handled here,
+ * without Claude.
  */
 @Service
 @EnableConfigurationProperties(AgentProperties.class)
@@ -31,9 +36,13 @@ public class Agent implements DisposableBean {
 
 	private static final Logger log = LoggerFactory.getLogger(Agent.class);
 
+	private static final String NEW_CONVERSATION = "command.new-conversation";
+
 	private final LlmPort llm;
 
 	private final Persona persona;
+
+	private final Conversation<LlmMessage> conversation;
 
 	private final List<AgentOutputListener> listeners;
 
@@ -43,9 +52,11 @@ public class Agent implements DisposableBean {
 
 	private final int maxMessageChars;
 
-	Agent(LlmPort llm, Persona persona, List<AgentOutputListener> listeners, AgentProperties properties) {
+	Agent(LlmPort llm, Persona persona, Conversation<LlmMessage> conversation, List<AgentOutputListener> listeners,
+			AgentProperties properties) {
 		this.llm = llm;
 		this.persona = persona;
+		this.conversation = conversation;
 		this.listeners = List.copyOf(listeners);
 		this.tasks = new TaskRegistry(properties.maxActiveTasks());
 		this.maxMessageChars = properties.maxMessageChars();
@@ -83,11 +94,7 @@ public class Agent implements DisposableBean {
 	private void run(UUID taskId, String text) {
 		AgentOutput output;
 		try {
-			LlmResponse response = llm.complete(
-					new LlmRequest(taskId, persona.systemPrompt(), List.of(), List.of(new LlmMessage.User(text))));
-			String answer = response.message().text();
-			output = new AgentOutput.Reply(taskId,
-					response.budgetWarning() ? answer + "\n\n" + persona.text("llm.budget-warning") : answer);
+			output = persona.isCommand(NEW_CONVERSATION, text) ? startNewConversation(taskId) : answer(taskId, text);
 		}
 		catch (LlmBudgetExhausted ex) {
 			log.warn("taskId={} budget exhausted: {}", taskId, ex.getMessage());
@@ -116,6 +123,54 @@ public class Agent implements DisposableBean {
 			tasks.finish(taskId);
 		}
 		emit(output);
+	}
+
+	/** "New conversation": an ordinary Task that never calls Claude, so it works with an exhausted budget too. */
+	private AgentOutput startNewConversation(UUID taskId) {
+		conversation.reset();
+		log.info("taskId={} Conversation reset by the user", taskId);
+		return new AgentOutput.Reply(taskId, persona.text("conversation.reset"));
+	}
+
+	private AgentOutput answer(UUID taskId, String text) {
+		LlmMessage.User question = new LlmMessage.User(text);
+		List<LlmMessage> messages = new ArrayList<>(conversation.messages());
+		messages.add(question);
+		LlmResponse response = llm.complete(new LlmRequest(taskId, persona.systemPrompt(), List.of(), messages));
+
+		if (response.stopReason() == StopReason.CONTEXT_WINDOW_EXCEEDED) {
+			log.warn("taskId={} Conversation no longer fits the context window", taskId);
+			return new AgentOutput.Failure(taskId, withBudgetWarning(persona.text("conversation.context-full"), response));
+		}
+		String answer = response.message().text();
+		if (keepable(response)) {
+			// The assistant turn goes in as returned: its ProviderContent carries the thinking blocks in order (AD-11).
+			conversation.append(question, response.message());
+		}
+		else {
+			// An empty or unfinished assistant turn would make every later call fail; the exchange is not kept.
+			log.warn("taskId={} stop reason {}: answer not kept in the Conversation", taskId, response.stopReason());
+		}
+		if (answer.isBlank()) {
+			return new AgentOutput.Failure(taskId, withBudgetWarning(persona.text("agent.failed"), response));
+		}
+		String reply = withBudgetWarning(answer, response);
+		if (conversation.claimResetSuggestion(response.usage().promptTokens())) {
+			reply += "\n\n" + persona.text("conversation.suggest-reset");
+		}
+		return new AgentOutput.Reply(taskId, reply);
+	}
+
+	/** The once-a-month warning is used up by this call, so it is shown whatever the outcome. */
+	private String withBudgetWarning(String text, LlmResponse response) {
+		return response.budgetWarning() ? text + "\n\n" + persona.text("llm.budget-warning") : text;
+	}
+
+	/** A finished or token-limited answer with text; refusals, unknown stops and empty turns stay out. */
+	private static boolean keepable(LlmResponse response) {
+		boolean finished = response.stopReason() == StopReason.END_TURN
+				|| response.stopReason() == StopReason.MAX_TOKENS;
+		return finished && !response.message().text().isBlank();
 	}
 
 	private void emit(AgentOutput output) {

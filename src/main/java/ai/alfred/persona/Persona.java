@@ -7,8 +7,11 @@ import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
+import java.text.Normalizer;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -20,6 +23,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class Persona {
+
+	/** Whitespace and full stops or exclamation marks a command may end with. */
+	private static final Pattern TRAILING_PUNCTUATION = Pattern.compile("[\\s.!]+$");
 
 	private final String systemPrompt;
 
@@ -69,6 +75,29 @@ public class Persona {
 			throw new IllegalArgumentException("No persona text for key '" + key + "'");
 		}
 		return args.length == 0 ? pattern : new MessageFormat(pattern, locale).format(args);
+	}
+
+	/**
+	 * Whether {@code input} is the command whose accepted forms are the text for {@code key}, separated by {@code |}.
+	 * The match is exact after ignoring leading and trailing whitespace, trailing {@code .} or {@code !} and case (by
+	 * this persona's language rules); anything else, such as a longer sentence, is not the command.
+	 * @throws IllegalArgumentException for an unknown key
+	 */
+	public boolean isCommand(String key, String input) {
+		if (input == null) {
+			return false;
+		}
+		// The persona's rules fold "YENİ" to "yeni"; ROOT folds ASCII "YENI" to "yeni" where Turkish would give "yenı".
+		String byLanguage = normalize(input, locale);
+		String byRoot = normalize(input, Locale.ROOT);
+		return Arrays.stream(text(key).split("\\|"))
+			.map(form -> normalize(form, locale))
+			.anyMatch(form -> form.equals(byLanguage) || form.equals(byRoot));
+	}
+
+	private static String normalize(String text, Locale caseRules) {
+		String stripped = TRAILING_PUNCTUATION.matcher(text.strip()).replaceFirst("");
+		return Normalizer.normalize(stripped, Normalizer.Form.NFC).toLowerCase(caseRules);
 	}
 
 	private static String read(String path) {

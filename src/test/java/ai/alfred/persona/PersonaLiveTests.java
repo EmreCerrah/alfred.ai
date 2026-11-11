@@ -10,6 +10,8 @@ import ai.alfred.TestcontainersConfiguration;
 import ai.alfred.agent.Agent;
 import ai.alfred.agent.AgentOutput;
 import ai.alfred.agent.AgentOutputListener;
+import ai.alfred.memory.Conversation;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -49,6 +51,15 @@ class PersonaLiveTests {
 
 	@Autowired
 	LinkedBlockingQueue<AgentOutput> outputs;
+
+	@Autowired
+	Conversation<?> conversation;
+
+	/** Each message is judged on its own, not as a follow-up to the previous one. */
+	@BeforeEach
+	void newConversation() {
+		conversation.reset();
+	}
 
 	@ParameterizedTest
 	@ValueSource(strings = { "Merhaba alfred", "Docker yine kafayı yedi.", "Server neden yavaş?", "Alfred, hallet.",

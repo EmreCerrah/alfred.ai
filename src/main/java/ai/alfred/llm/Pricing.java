@@ -20,8 +20,7 @@ class Pricing {
 	}
 
 	BigDecimal cost(Usage usage) {
-		long prompt = usage.inputTokens() + usage.cacheReadTokens() + usage.cacheWriteTokens();
-		boolean longContext = prompt > prices.longContextThreshold();
+		boolean longContext = usage.promptTokens() > prices.longContextThreshold();
 		BigDecimal input = longContext ? prices.longInputPerMtok() : prices.inputPerMtok();
 		BigDecimal output = longContext ? prices.longOutputPerMtok() : prices.outputPerMtok();
 		BigDecimal micro = input.multiply(BigDecimal.valueOf(usage.inputTokens()))
