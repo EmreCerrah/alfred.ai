@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 import ai.alfred.TestcontainersConfiguration;
 import ai.alfred.llm.FakeLlmPort;
 import ai.alfred.llm.LlmPort;
+import ai.alfred.memory.Conversation;
 import ai.alfred.persona.Persona;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -88,12 +89,17 @@ class ChannelTests {
 	EventStream events;
 
 	@Autowired
+	Conversation<?> conversation;
+
+	@Autowired
 	ServletWebServerApplicationContext webServer;
 
 	@BeforeEach
 	@AfterEach
 	void reset() {
 		llm.reset();
+		// One shared Conversation per context: without this, history would pile up from test to test.
+		conversation.reset();
 	}
 
 	@Test

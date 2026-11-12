@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import ai.alfred.agent.Agent;
+import ai.alfred.memory.Conversation;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,11 +19,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.ApplicationModuleListener;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class StartupTests {
@@ -60,6 +64,23 @@ class StartupTests {
 
 		@Autowired
 		TransactionTemplate tx;
+
+		@Autowired
+		ApplicationContext context;
+
+		@Autowired
+		Agent agent;
+
+		@Test
+		void injectsTheOneSharedConversationIntoTheAgent() {
+			var conversations = context.getBeansOfType(Conversation.class);
+
+			assertThat(conversations).hasSize(1);
+			Conversation<?> conversation = conversations.values().iterator().next();
+			assertThat(ReflectionTestUtils.getField(agent, "conversation")).isSameAs(conversation);
+			// alfred.memory.suggest-reset-tokens from application.yml
+			assertThat(ReflectionTestUtils.getField(conversation, "suggestResetTokens")).isEqualTo(80_000L);
+		}
 
 		@Test
 		void runsRootMigrationIntoTheSharedModulithSchema() {
